@@ -1062,3 +1062,355 @@ git commit -m "docs(dashboard): note HUD design system in README"
 - **Spec coverage:** design system → Task 1; HUD primitives incl. syntax tokenizer → Task 2; nav → Task 3; charts incl. live dot + dot-notation titles (`LOSS.TRAIN`, `LOSS.VAL`, `CURVE.PASS`, `LR`, `TOK.S`, `IDIOM.SIM`) → Task 4; Monitor L1 + rebuilt compare + `NO SIGNAL` empty state → Task 5; Train T2 → Task 6; Ingest I2 → Task 7; verification → Task 8. Out-of-scope items (no `.sv.jac` changes, no GPU tile, no light mode) hold across all tasks.
 - **Type consistency:** `BracketTile(label, value, sub, subcls)`, `StatusGlyph(status)`, `LogView(text, maxh)`, `JsonRow(text)` are used with those exact signatures in Tasks 5–7; `MetricChart(title, data, color, live)` matches Task 4 and all Task 5 call sites.
 - **Known risk:** Jac client syntax for lambdas-in-loops and dict-state updates; mitigations inline (Task 7 notes, `jac check` + `jac guide` loop each task).
+
+---
+
+# Revision A — 5-page scope (supersedes Tasks 5 and 8; Tasks 6 and 7 renumbered)
+
+App was restructured mid-implementation (commits `5aa3daf`, `8c2778f`): Monitor = live-only,
+new HistoryPage (past runs + compare), new DatasetPage (server-side `tok-*` highlighting),
+shared RunCharts. User chose to extend HUD to all 5 pages. Tasks 1–4 stand as written.
+Execution order: 4 → 5R → 6 (Train, unchanged from original Task 6) → 7R → 8R → 9 → 10.
+Note: between 5R and 8R, `jac check components/IngestPage.cl.jac` fails on the removed
+`StatCard` import — expected; whole-app check happens in Task 10.
+
+### Task 5R: RunCharts + MonitorPage (replaces original Task 5)
+
+**Files:**
+- Modify: `dashboard_app/components/RunCharts.cl.jac` (full replace)
+- Modify: `dashboard_app/components/MonitorPage.cl.jac` (full replace)
+
+- [ ] **Step 1: Replace `RunCharts.cl.jac` with:**
+
+```jac
+"""Shared render of one run's metrics: HUD stat tiles + chart grid + LOG.TAIL.
+Used by Monitor (live) and History (past snapshot)."""
+
+sv import from ..services.runs { RunMetrics }
+import from .charts.MetricChart { MetricChart }
+import from .hud.Hud { BracketTile, LogView }
+
+def last_y(series: list[dict]) -> str {
+    if len(series) == 0 { return "—"; }
+    return str(series[len(series) - 1]["y"]);
+}
+
+def loss_trend(series: list[dict]) -> list[str] {
+    # [label, accent-class] from the last two points of a loss series.
+    if len(series) < 2 { return ["", ""]; }
+    a: float = float(str(series[len(series) - 2]["y"]));
+    b: float = float(str(series[len(series) - 1]["y"]));
+    if b < a { return ["▼ CONVERGING", "dg-acc-green"]; }
+    if b > a { return ["▲ RISING", "dg-acc-amber"]; }
+    return ["— HOLDING", ""];
+}
+
+def pass_trend(series: list[dict]) -> list[str] {
+    if len(series) < 2 { return ["", ""]; }
+    a: float = float(str(series[len(series) - 2]["y"]));
+    b: float = float(str(series[len(series) - 1]["y"]));
+    if b >= a { return ["▲ NOMINAL", "dg-acc-green"]; }
+    return ["▼ REGRESSING", "dg-acc-amber"];
+}
+
+def:pub RunCharts(metrics: RunMetrics, live: bool) -> JsxElement {
+    trn_t: list[str] = loss_trend(metrics.train);
+    val_t: list[str] = loss_trend(metrics.val);
+    pas_t: list[str] = pass_trend(metrics.curve);
+    return <div>
+        <div className="dg-stats dg-mb">
+            <BracketTile label="PASS.RATE" value={last_y(metrics.curve) + "%"} sub={pas_t[0]} subcls={pas_t[1]} />
+            <BracketTile label="LOSS.TRN" value={last_y(metrics.train)} sub={trn_t[0]} subcls={trn_t[1]} />
+            <BracketTile label="LOSS.VAL" value={last_y(metrics.val)} sub={val_t[0]} subcls={val_t[1]} />
+            <BracketTile label="TOK.S" value={last_y(metrics.tps)} sub={"ITER " + str(metrics.last_iter)} subcls="" />
+        </div>
+
+        {metrics.has_idiom and <div className="dg-stats dg-mb">
+            <BracketTile key="a" label="IDIOM.SIM" value={str(metrics.idiom_avg_sim)} sub={metrics.idiom_label} subcls="" />
+            <BracketTile key="b" label="IDIOMATIC" value={str(metrics.idiom_idiomatic)} sub="DIVERGED FROM TRANSPILE" subcls="" />
+            <BracketTile key="c" label="PY.SHAPED" value={str(metrics.idiom_python)} sub="REPRODUCED TRANSPILE" subcls="" />
+            <BracketTile key="d" label="RUNS.TOTAL" value={str(metrics.idiom_runs) + " / " + str(metrics.idiom_total)} sub="BEHAVIORAL PASS" subcls="" />
+        </div>}
+
+        <div className="dg-grid">
+            <MetricChart title="LOSS.TRAIN" data={metrics.train} color="#fff" live={live} />
+            <MetricChart title="LOSS.VAL" data={metrics.val} color="#fff" live={live} />
+            <MetricChart title="CURVE.PASS" data={metrics.curve} color="#fff" live={live} />
+            <MetricChart title="LR" data={metrics.lr} color="#fff" live={False} />
+            <MetricChart title="TOK.S" data={metrics.tps} color="#fff" live={False} />
+            {len(metrics.idiom_sim) > 0 and <MetricChart title="IDIOM.SIM" data={metrics.idiom_sim} color="#fff" live={False} />}
+        </div>
+
+        <div className="dg-panel dg-mb-lg" style={{"marginTop": "1.4rem"}}>
+            <span className="dg-panel-label">LOG.TAIL</span>
+            <LogView text={metrics.log_tail if metrics.log_tail != "" else "(no log yet)"} maxh="220px" />
+        </div>
+    </div>;
+}
+```
+
+Note: the old `StatCard` export is intentionally gone; HistoryPage/IngestPage stop using it in Tasks 7R/8R.
+
+- [ ] **Step 2: Replace `MonitorPage.cl.jac` with (logic identical to current file, HUD markup):**
+
+```jac
+"""Monitor — LIVE. Shows only currently-running training sessions and streams
+their metrics in real time (2.5s poll). When a run finishes it drops off here and
+appears under History.
+"""
+
+sv import from ..services.jobs { Session, list_sessions }
+sv import from ..services.runs { RunMetrics, get_run_metrics }
+import from .RunCharts { RunCharts }
+
+def:pub MonitorPage() -> JsxElement {
+    has sessions: list[Session] = [],
+        sel_name: str = "",
+        sel_mode: str = "sft",
+        metrics: RunMetrics | None = None,
+        tick: int = 0;
+
+    async can with [tick] entry {
+        s: list[Session] = await list_sessions();
+        sessions = s;
+        run: list[Session] = [x for x in s if x.status == "running"];
+        found: bool = False;
+        for x in run {
+            if x.name == sel_name and x.mode == sel_mode { found = True; }
+        }
+        if not found {
+            if len(run) > 0 {
+                sel_name = run[0].name;
+                sel_mode = run[0].mode;
+            } else {
+                sel_name = "";
+                metrics = None;
+            }
+        }
+        if sel_name != "" {
+            metrics = await get_run_metrics(sel_name, sel_mode);
+        }
+        # always live — re-arm a single timer (only [tick] dep, so no extra chains)
+        setTimeout(lambda { tick = tick + 1; }, 2500);
+    }
+
+    def pick(nm: str, md: str) -> None {
+        sel_name = nm;
+        sel_mode = md;
+    }
+
+    running: list[Session] = [x for x in sessions if x.status == "running"];
+
+    return <div className="dg-page">
+        <div className="dg-row dg-mb">
+            <span className="dg-status dg-glyph-run">⦿ LIVE</span>
+            {for x in running {
+                <button key={x.name + x.mode}
+                    onClick={lambda (e: MouseEvent) { pick(x.name, x.mode); }}
+                    className={"dg-btn dg-btn-primary" if (x.name == sel_name and x.mode == sel_mode) else "dg-btn"}>
+                    {x.label}
+                </button>
+            }}
+            <span className="dg-spacer"></span>
+            {metrics and <span className="dg-faint">{"ITER " + str(metrics.last_iter)}</span>}
+        </div>
+
+        {len(running) == 0 and <div className="dg-panel" style={{"textAlign": "center", "padding": "2.6rem 1rem"}}>
+            <span className="dg-panel-label">MONITOR</span>
+            <div className="dg-chart-empty" style={{"padding": "0 0 0.5rem"}}>NO ACTIVE RUN</div>
+            <div className="dg-faint">Start one on the TRAIN tab — it streams here live. Finished runs live under HISTORY.</div>
+        </div>}
+
+        {len(running) > 0 and metrics and <RunCharts metrics={metrics} live={True} />}
+    </div>;
+}
+```
+
+- [ ] **Step 3: `jac check components/RunCharts.cl.jac && jac check components/MonitorPage.cl.jac`** — no errors.
+- [ ] **Step 4: Commit** `git add dashboard_app/components/RunCharts.cl.jac dashboard_app/components/MonitorPage.cl.jac && git commit -m "feat(dashboard): HUD RunCharts + live Monitor"`
+
+### Task 6: Train page — unchanged from original plan Task 6 (T2 split console). Note HistoryPage and IngestPage still import `StatusBadge` from TrainPage until Tasks 7R/8R run; only check `components/TrainPage.cl.jac` in this task.
+
+### Task 7R: HistoryPage — HUD restyle (new)
+
+**Files:**
+- Modify: `dashboard_app/components/HistoryPage.cl.jac` (full replace)
+
+- [ ] **Step 1: Replace with (logic identical, HUD markup; StatusGlyph from Hud; RunCharts gains live arg):**
+
+```jac
+"""History — PAST training sessions. Browse any finished run's metrics (snapshot),
+and compare runs (gemma vs qwen) overlaid. Live runs live on the Monitor tab."""
+
+sv import from ..services.jobs { Session, list_sessions }
+sv import from ..services.runs { RunMetrics, CompareResult, get_run_metrics, compare_runs }
+import from .RunCharts { RunCharts }
+import from .charts.MultiLineChart { MultiLineChart }
+import from .hud.Hud { StatusGlyph }
+
+glob CMP_COLORS: list[str] = ["#60a5fa", "#f472b6", "#34d399", "#a78bfa", "#22d3ee"];
+
+def:pub HistoryPage() -> JsxElement {
+    has sessions: list[Session] = [],
+        sel: str = "",
+        sel_name: str = "",
+        sel_mode: str = "sft",
+        metrics: RunMetrics | None = None,
+        compare: bool = False,
+        cmode: str = "sft",
+        cmp: CompareResult | None = None,
+        tick: int = 0;
+
+    async can with entry {
+        s: list[Session] = await list_sessions();
+        past: list[Session] = [x for x in s if x.status != "running"];
+        sessions = past;
+        if len(past) > 0 and sel == "" {
+            sel = past[0].name + "|" + past[0].mode;
+            sel_name = past[0].name;
+            sel_mode = past[0].mode;
+            metrics = await get_run_metrics(past[0].name, past[0].mode);
+        }
+    }
+
+    async can with [sel_name, sel_mode, tick] entry {
+        if sel_name != "" {
+            metrics = await get_run_metrics(sel_name, sel_mode);
+        }
+    }
+
+    async can with [compare, cmode] entry {
+        if compare {
+            cmp = await compare_runs(cmode);
+        }
+    }
+
+    def on_select(e: ChangeEvent) {
+        v: str = e.target.value;
+        sel = v;
+        parts: list = v.split("|");
+        sel_name = str(parts[0]);
+        sel_mode = str(parts[1]) if len(parts) > 1 else "sft";
+    }
+
+    def set_cmode(m: str) -> None {
+        cmode = m;
+    }
+
+    def toggle_compare(e: MouseEvent) {
+        compare = not compare;
+    }
+
+    chead: list[dict] = cmp.headline if cmp is not None else [];
+    cnames: list[str] = cmp.names if cmp is not None else [];
+    ctrain: list[dict] = cmp.train if cmp is not None else [];
+    cval: list[dict] = cmp.val if cmp is not None else [];
+    ccurve: list[dict] = cmp.curve if cmp is not None else [];
+    cur_status: str = "";
+    for x in sessions {
+        if x.name == sel_name and x.mode == sel_mode { cur_status = x.status; }
+    }
+
+    return <div className="dg-page">
+        <div className="dg-row dg-mb">
+            <select value={sel} onChange={on_select} className="dg-select" disabled={compare}>
+                {if len(sessions) == 0 {
+                    <option key="none" value="">no past runs</option>
+                }}
+                {for x in sessions {
+                    <option key={x.name + x.mode} value={x.name + "|" + x.mode}>{x.label}</option>
+                }}
+            </select>
+            {not compare and cur_status != "" and <StatusGlyph status={cur_status} />}
+            <button onClick={toggle_compare} className={"dg-btn dg-btn-primary" if compare else "dg-btn"}>
+                {"COMPARING ALL RUNS" if compare else "COMPARE"}
+            </button>
+            {compare and <div className="dg-seg">
+                <button onClick={lambda (e: MouseEvent) { set_cmode("sft"); }} className={"dg-seg-btn dg-active" if cmode == "sft" else "dg-seg-btn"}>SFT</button>
+                <button onClick={lambda (e: MouseEvent) { set_cmode("dpo"); }} className={"dg-seg-btn dg-active" if cmode == "dpo" else "dg-seg-btn"}>DPO</button>
+            </div>}
+        </div>
+
+        {compare and len(chead) > 0 and <div className="dg-stats dg-mb">
+            {for (i, h) in enumerate(chead) {
+                <div key={str(h["name"])} className="dg-tile">
+                    <span className="dg-br dg-br-tl"></span>
+                    <span className="dg-br dg-br-br"></span>
+                    <div className="dg-tile-label" style={{"color": CMP_COLORS[i % len(CMP_COLORS)]}}>{"■ " + str(h["name"]) + " · " + cmode}</div>
+                    <div className="dg-tile-value">{str(h["final_pass"]) + "%"}</div>
+                    <div className="dg-tile-sub">{"idiom " + str(h["idiom_sim"]) + " · loss " + str(h["last_loss"])}</div>
+                </div>
+            }}
+        </div>}
+
+        {compare and len(chead) > 0 and <div className="dg-grid">
+            <MultiLineChart title="LOSS.TRAIN" data={ctrain} names={cnames} colors={CMP_COLORS} />
+            <MultiLineChart title="LOSS.VAL" data={cval} names={cnames} colors={CMP_COLORS} />
+            <MultiLineChart title="CURVE.PASS" data={ccurve} names={cnames} colors={CMP_COLORS} />
+        </div>}
+
+        {not compare and metrics is None and <div className="dg-chart-empty" style={{"padding": "4rem 0"}}>NO PAST RUNS</div>}
+        {not compare and metrics and <RunCharts metrics={metrics} live={False} />}
+    </div>;
+}
+```
+
+- [ ] **Step 2: `jac check components/HistoryPage.cl.jac`** — no errors.
+- [ ] **Step 3: Commit** `git add dashboard_app/components/HistoryPage.cl.jac && git commit -m "feat(dashboard): HUD History page"`
+
+### Task 8R: IngestPage — I2 (use the ORIGINAL plan Task 7 code verbatim)
+
+The original Task 7 file replacement remains correct for the current IngestPage (state/handler logic
+is identical in the restructured app; only the old imports differ, and the replacement already imports
+from `.hud.Hud`). Follow original Task 7 steps 1–3 exactly, except the whole-app check: run
+`jac check components/IngestPage.cl.jac` only (DatasetPage/main check happens in Task 10).
+
+### Task 9: DatasetPage CSS + markup touch (new)
+
+**Files:**
+- Modify: `dashboard_app/global.css` (append section)
+- Modify: `dashboard_app/components/DatasetPage.cl.jac` (one class + two text tweaks)
+
+- [ ] **Step 1: Append to `global.css`:**
+
+```css
+/* ---- dataset table (HUD) ---- */
+.dg-table { border: 1px solid #333; }
+.dg-thead, .dg-tr {
+  display: grid;
+  grid-template-columns: 56px minmax(120px, 200px) 110px minmax(120px, 180px) 1fr;
+  gap: 0.6rem; align-items: center;
+  padding: 0.5rem 0.9rem;
+}
+.dg-thead { border-bottom: 1px solid #333; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.18em; color: #777; }
+.dg-tr { border-bottom: 1px solid #1c1c1f; cursor: pointer; transition: background .12s; font-size: 0.78rem; color: #bbb; }
+.dg-tr:hover { background: rgba(255, 255, 255, 0.03); }
+.dg-tr.dg-open { background: rgba(255, 255, 255, 0.05); }
+.dg-td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-kind { font-size: 0.66rem; padding: 0.08rem 0.4rem; border: 1px solid #444; color: #999; text-transform: uppercase; letter-spacing: 0.08em; }
+.dg-detail { padding: 0.9rem 1rem 1.1rem; background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid #1c1c1f; }
+.dg-detail-prompt { color: #b7b7c0; font-size: 0.8rem; margin-bottom: 0.7rem; line-height: 1.5; white-space: pre-wrap; }
+.dg-code-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.7rem; }
+
+/* ---- code block + One-Dark tokens (server-side highlighted spans) ---- */
+.dg-code { border: 1px solid #333; background: #0a0a0c; }
+.dg-code-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.18em; color: #777; padding: 0.35rem 0.7rem; border-bottom: 1px solid #2a2a2e; }
+.dg-code-pre { margin: 0; padding: 0.7rem 0.85rem; overflow: auto; max-height: 360px; }
+.dg-code-pre code { font-family: inherit; font-size: 0.76rem; line-height: 1.55; color: #d7d7e0; white-space: pre; }
+.tok-kw   { color: #c678dd; }
+.tok-type { color: #56b6c2; }
+.tok-bi   { color: #e5c07b; }
+.tok-str  { color: #98c379; }
+.tok-num  { color: #d19a66; }
+.tok-com  { color: #6b7079; font-style: italic; }
+```
+
+- [ ] **Step 2: In `DatasetPage.cl.jac`:** change `className="dg-glass dg-table"` to `className="dg-table"`; change the two hint strings `"click a row to expand"` → `"CLICK ROW TO EXPAND"` and `"rows " + ...` → `"ROWS " + ...`; change button labels `‹ prev`/`next ›` → `‹ PREV`/`NEXT ›`. No logic changes.
+- [ ] **Step 3: `jac check components/DatasetPage.cl.jac`** — no errors.
+- [ ] **Step 4: Commit** `git add dashboard_app/global.css dashboard_app/components/DatasetPage.cl.jac && git commit -m "style(dashboard): HUD dataset table + One-Dark token palette"`
+
+### Task 10: Build verification + docs (replaces original Task 8)
+
+Same as original Task 8, but the manual smoke covers FIVE screens (Monitor live/empty, History incl.
+compare, Train, Ingest, Dataset expand-row with token colors) and step 1 starts with
+`jac check main.jac` (whole app, all imports resolved) before `jac build --client web`.

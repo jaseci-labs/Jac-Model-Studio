@@ -130,3 +130,17 @@ Polling behavior unchanged (2.5s self-rearming tick).
   existing `results/` artifacts; check Monitor compare toggle, Train start/stop controls
   render (no live run needed), Ingest preview paging and add-examples message styling.
 - Hot-reload only touches `.cl.jac` + css, so no server restart needed during styling.
+
+## Addendum A (2026-06-10, mid-implementation)
+
+A parallel session restructured the app before Tasks 4+ ran (commits `5aa3daf`, `8c2778f`):
+Monitor is now live-runs-only; new **History** page holds past runs + the compare overlay;
+new **Dataset** page browses the corpus with server-side syntax highlighting (`tok-*` spans);
+shared **RunCharts** renders stat cards + chart grid + log tail; nav has 5 tabs.
+
+User decision: **extend the HUD redesign to all 5 pages.** Consequences:
+- Compare mode lives on History (not Monitor); Monitor keeps layout L1 minus compare.
+- RunCharts becomes the HUD home of stat tiles/charts/log for Monitor + History.
+- Dataset keeps server-side highlighting; global.css gains HUD-styled `dg-table/thead/tr/td`,
+  `dg-kind`, `dg-detail*`, `dg-code*` and the One-Dark `tok-*` palette (square corners, #333 borders).
+- The plan's Task 5 is replaced; History and Dataset get new tasks (see plan Revision A).
