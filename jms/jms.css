@@ -6,72 +6,11 @@
    in theme.css, so nothing below needed to change. */
 
 /* ---------------------------------------------------------- components --- */
-.jms-label {
-  font-family: var(--jms-font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--jms-fg-dim);
-  transition: color 180ms ease;
-}
-
-.jms-stat {
-  font-family: var(--jms-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--jms-fg-dim);
-}
-
-.jms-display {
-  font-family: var(--jms-font-display);
-  font-weight: var(--jms-display-weight);
-  letter-spacing: var(--jms-display-tracking);
-  text-transform: var(--jms-display-transform);
-  line-height: 0.92;
-  text-shadow: var(--jms-display-glow);
-  color: var(--jms-fg);
-}
-
-.jms-card {
-  background-color: var(--jms-bg-raised);
-  border: var(--jms-border-w) solid var(--jms-border);
-  border-radius: var(--jms-radius);
-  box-shadow: var(--jms-card-shadow);
-  transition: border-color 200ms ease, box-shadow 200ms ease,
-    transform 200ms ease, background-color 220ms ease;
-}
-.jms-card:hover {
-  border-color: var(--jms-accent);
-  box-shadow: var(--jms-hover-shadow);
-}
-
-.jms-btn {
-  font-family: var(--jms-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--jms-fg-dim);
-  background: transparent;
-  border: 1px solid var(--jms-border);
-  border-radius: calc(var(--jms-radius) * 0.6);
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
-}
-.jms-btn:hover {
-  color: var(--jms-fg);
-  border-color: var(--jms-accent);
-}
-.jms-btn-accent {
-  background-color: var(--jms-accent);
-  border-color: var(--jms-accent);
-  color: var(--jms-accent-fg);
-}
-.jms-btn-accent:hover {
-  color: var(--jms-accent-fg);
-  filter: brightness(1.08);
-}
+/* .jms-label unified with .micro-label in global.css */
+/* .jms-stat unified with .stat-line in global.css */
+/* .jms-display unified with .exp-display in global.css */
+/* .jms-card (+hover) unified with .exp-panel/.exp-hoverable in global.css */
+/* .jms-btn* unified with .exp-btn* in global.css */
 
 /* ------------------------------------------------------- landing layout --- */
 .jms-topbar {
@@ -80,7 +19,10 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px clamp(16px, 2.5vw, 32px);
-  border-bottom: 1px var(--jms-rule-style) var(--jms-border);
+  background: var(--bar);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--border-alt);
   flex-shrink: 0;
 }
 
@@ -89,7 +31,7 @@
   align-items: center;
   justify-content: center;
   padding: 10px clamp(16px, 2.5vw, 32px);
-  border-top: 1px var(--jms-rule-style) var(--jms-border);
+  border-top: 1px solid var(--border-alt);
   flex-shrink: 0;
 }
 
@@ -97,7 +39,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.12fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: clamp(12px, 1.6vw, 24px);
   padding: clamp(14px, 2vw, 28px) clamp(16px, 2.5vw, 32px);
   overflow: hidden;
@@ -124,10 +66,7 @@
 }
 
 .jms-hero-word {
-  font-size: clamp(72px, min(14vw, 26vh), 200px);
-}
-.jms-hero-word-sm {
-  font-size: clamp(38px, min(5vw, 11vh), 82px);
+  font-size: clamp(34px, min(5vw, 10vh), 76px);
 }
 .jms-hero-sub {
   font-family: var(--jms-font-body);
@@ -137,66 +76,35 @@
   opacity: 0.85;
   max-width: 34ch;
 }
-.jms-hero-quiet .jms-hero-sub {
-  color: var(--jms-fg-dim);
-  opacity: 1;
-}
 .jms-hero-accent-tick {
   width: 34px;
   height: 3px;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--jms-accent), var(--jms-accent-2));
+  background: linear-gradient(90deg, var(--accent), var(--accent-soft));
   transition: width 200ms ease;
 }
 .jms-hero-panel:hover .jms-hero-accent-tick {
   width: 56px;
 }
 
-/* -------------------------------------------------------- theme switcher --- */
-.jms-switcher {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* floating pill nav (DESIGN.md §4 navigation) */
+/* centered via left/right/margin (NOT transform) so the .reveal fadeInUp
+   animation's transform doesn't clobber the horizontal centering */
+.jms-pillnav {
+  position: absolute; top: 18px; left: 0; right: 0; margin: 0 auto;
+  width: fit-content; z-index: 20;
+  display: flex; align-items: center; gap: 18px;
+  padding: 8px 18px; border-radius: 999px;
+  background: var(--bar); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--border); box-shadow: var(--shadow-nav), var(--inner-hi);
 }
-.jms-switcher-name {
-  font-family: var(--jms-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--jms-fg-dim);
-}
-.jms-swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--jms-border);
-  padding: 0;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
-}
-.jms-swatch:hover {
-  transform: scale(1.18);
-  border-color: var(--jms-fg-dim);
-}
-.jms-swatch-active {
-  box-shadow: 0 0 0 2px var(--jms-bg), 0 0 0 4px var(--jms-accent);
-}
-/* two-tone identity dots — fixed per theme, independent of active tokens */
-.jms-swatch-electric-minimal {
-  background: linear-gradient(135deg, #050507 50%, #3355ff 50%);
-}
-.jms-swatch-warm-industrial {
-  background: linear-gradient(135deg, #111008 50%, #ffb000 50%);
-}
-.jms-swatch-bright-lab {
-  background: linear-gradient(135deg, #f7f7f4 50%, #6620e0 50%);
-}
-.jms-swatch-phosphor {
-  background: linear-gradient(135deg, #0a0f0a 50%, #33ff66 50%);
-}
-.jms-swatch-print-shop {
-  background: linear-gradient(135deg, #f4f0e6 50%, #e03e1f 50%);
+/* depth row beneath the two entries */
+.jms-feature-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(12px,1.4vw,20px);
+  padding: 0 clamp(16px,2.5vw,32px) clamp(14px,2vw,28px); }
+.jms-feature {
+  padding: 16px 18px; border-radius: var(--radius);
+  background: var(--surface); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--border); box-shadow: var(--shadow-soft), var(--inner-hi);
 }
 
 /* ------------------------------------------------------------ JMS shell --- */
@@ -238,8 +146,8 @@
 }
 .jms-pname {
   font-family: var(--jms-font-display);
-  font-weight: var(--jms-display-weight);
-  letter-spacing: var(--jms-display-tracking);
+  font-weight: var(--weight-black);
+  letter-spacing: -0.03em;
   font-size: 22px;
   line-height: 1.05;
   color: var(--jms-fg);
@@ -270,8 +178,8 @@
   flex-shrink: 0;
 }
 .jms-dot-on {
-  background: var(--jms-accent);
-  border-color: var(--jms-accent);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* new-project dashed card + inline form */
@@ -284,42 +192,9 @@
 .jms-newcard:hover { color: var(--jms-fg); }
 
 /* -- form controls (mono, token-colored) -------------------------------- */
-.jms-input,
-.jms-textarea {
-  width: 100%;
-  font-family: var(--jms-font-mono);
-  font-size: 12px;
-  color: var(--jms-fg);
-  background-color: var(--jms-bg);
-  border: 1px solid var(--jms-border);
-  border-radius: calc(var(--jms-radius) * 0.5);
-  padding: 8px 10px;
-  outline: none;
-  transition: border-color 160ms ease;
-}
-.jms-textarea { resize: vertical; min-height: 68px; line-height: 1.45; }
-.jms-input:focus,
-.jms-textarea:focus { border-color: var(--jms-accent); }
-.jms-input::placeholder,
-.jms-textarea::placeholder { color: var(--jms-fg-dim); opacity: 0.7; }
+/* .jms-input/.jms-textarea (+focus/placeholder) unified with .exp-input in global.css */
 
-/* kind chip + toggle */
-.jms-chip {
-  font-family: var(--jms-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--jms-accent);
-  border: 1px solid var(--jms-border);
-  border-radius: 999px;
-  padding: 2px 8px;
-  background: transparent;
-  flex-shrink: 0;
-}
-
-/* danger variant of jms-btn (delete confirm) */
-.jms-btn-danger { color: var(--jms-danger); border-color: var(--jms-border); }
-.jms-btn-danger:hover { color: var(--jms-danger); border-color: var(--jms-danger); }
+/* .jms-chip (+active) unified with .exp-chip in global.css */
 
 /* saved flash */
 .jms-flash {
@@ -359,8 +234,8 @@
 .jms-pill:hover { color: var(--jms-fg); }
 .jms-pill-active {
   color: var(--jms-fg);
-  background-color: var(--jms-bg-raised);
-  border-color: var(--jms-border);
+  background-color: var(--accent-tint);
+  border-color: var(--accent);
 }
 .jms-pill-dot {
   width: 7px;
@@ -370,22 +245,23 @@
   background: transparent;
   flex-shrink: 0;
 }
-.jms-pill-dot-done { background: var(--jms-accent); border-color: var(--jms-accent); }
+.jms-pill-dot-done { background: var(--accent); border-color: var(--accent); }
 
 /* -- bordered section frame (like the terminal app's labeled panels) ---- */
-.jms-section {
-  position: relative;
-  border: var(--jms-border-w) solid var(--jms-border);
-  border-radius: var(--jms-radius);
-  background-color: var(--jms-bg-raised);
-  padding: 18px;
-}
+/* background/border/radius/shadow unified with .exp-panel/.jms-card in
+   global.css. padding kept here: unlike .jms-card call sites (which always
+   supply their own padding via Tailwind/inline style), every .jms-section
+   call site relies on the class for padding — dropping it collided the
+   floating label with the content below. */
+.jms-section { padding: 18px; }
 .jms-section-label {
   position: absolute;
   top: -8px;
   left: 14px;
   padding: 0 8px;
-  background-color: var(--jms-bg);
+  background: var(--surface-strong);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   font-family: var(--jms-font-mono);
   font-size: 9px;
   letter-spacing: 0.18em;

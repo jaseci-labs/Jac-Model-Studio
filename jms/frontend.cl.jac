@@ -31,21 +31,23 @@ import from .components.jms.JmsShell { JmsShell }
 def:pub app -> JsxElement {
     has authTick: int = 0,
         checking: bool = True,
-        surface: str = "",
-        jmsTheme: str = "";
+        surface: str = "";
 
     """On mount: read local_mode() once. Local desktop mints an in-process
     session token (see module docstring); prod falls through to <Login/> when
     no session is present."""
     async can with entry {
-        # Restore the persisted JMS theme before anything renders.
-        w: any = window;
+        # apply persisted light/dark mode before first paint
         try {
-            saved: any = w.localStorage.getItem("jms.theme");
-            jmsTheme = str(saved) if saved else "electric-minimal";
-        } except Exception {
-            jmsTheme = "electric-minimal";
-        }
+            dc: any = document;
+            wm: any = window;
+            md: str = "dark";
+            sv2: any = wm.localStorage.getItem("jacml.mode");
+            if sv2 { md = str(sv2); }
+            elif wm.matchMedia and wm.matchMedia("(prefers-color-scheme: light)").matches { md = "light"; }
+            if md == "dark" { dc.documentElement.classList.add("dark"); }
+            else { dc.documentElement.classList.remove("dark"); }
+        } except Exception { }
         lm: bool = False;
         try {
             lm = await local_mode();
@@ -82,16 +84,8 @@ def:pub app -> JsxElement {
     # Still resolving local_mode()/local_session() — hold a blank frame so we
     # never flash the login screen (which local users should never see).
     if checking {
-        return <div className="h-screen bg-[#0a0a0a]" />;
+        return <div className="h-screen bg-background" />;
     }
-    def applyJmsTheme(t: str) {
-        jmsTheme = t;
-        win: any = window;
-        try {
-            win.localStorage.setItem("jms.theme", t);
-        } except Exception { }
-    }
-
     # Valid session (local auto-login OR prod login) → surface router:
     # "" = hub landing, "jms" = new product shell, "experiments" = the existing
     # AppShell — its WorkspaceBar's "‹ EXPERIMENTS" button calls onHub directly,
@@ -100,8 +94,6 @@ def:pub app -> JsxElement {
         if surface == "jms" {
             return <JmsShell
                 onHub={lambda { surface = ""; }}
-                theme={jmsTheme}
-                onTheme={applyJmsTheme}
             />;
         }
         if surface == "experiments" {
@@ -109,8 +101,6 @@ def:pub app -> JsxElement {
         }
         return <Landing
             onPick={lambda(s: str) { surface = s; }}
-            theme={jmsTheme}
-            onTheme={applyJmsTheme}
         />;
     }
     # Production gate for logged-out visitors (or expired session).

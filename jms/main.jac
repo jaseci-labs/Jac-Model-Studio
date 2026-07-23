@@ -19,7 +19,11 @@ import from evals { EvalView, create_eval, list_evals, get_eval, stop_eval, dele
 # `sv import` RPC stubs, so register them at the top level.
 import from train { start_training, stop_training, get_status, list_sessions }
 import from backends { list_backends }
-import from workspace { ui_layout }
+import from workspace {
+    ui_layout, section_types,
+    create_workspace, update_workspace, delete_workspace, reorder_workspaces,
+    add_section, update_section, delete_section, reorder_sections
+}
 import from runs { list_runs, get_run, compare_runs }
 # Live RL ladder results — consumed by the RL section's `sv import` RPC stub.
 import from rl { get_rl_ladder, get_rl_corrected, rl_generate }
@@ -65,10 +69,27 @@ import from jms_projects {
     create_project, list_projects, get_project, update_project, delete_project,
     add_source, remove_source, scan_source, write_project_snapshot
 }
+# JMS top nav: a lean per-user workspace registry that GROUPS projects (no
+# sections — a project keeps its own internal stage rail). Consumed by
+# JmsShell's WorkspaceBar + the future JmsWorkspaceSettings drawer.
+import from jms_workspaces {
+    jms_ui_layout, create_jms_workspace, update_jms_workspace,
+    delete_jms_workspace, reorder_jms_workspaces
+}
 # JMS LLM provider config: per-user Anthropic key storage (encrypted) + the
 # provider/model catalog + price table. Consumed by the ApiKeyModal + PLAN picker.
 import from jms_llm {
     set_anthropic_key, clear_anthropic_key, llm_status, price_for
+}
+# In-app AI assistant (phase 2, task A1): OpenAI key storage (encrypted,
+# mirrors jms_llm's Anthropic pattern) + a unified provider listing
+# (mlx/claude/openai) for the assistant's model picker. Task A3's
+# `assistant_stream` (grounded streaming chat over MLX/Claude/OpenAI) is
+# consumed by a raw fetch reader on the client, same as `chat_stream` below —
+# registered here too so it doesn't 404.
+import from assistant {
+    assistant_providers, set_openai_key, clear_openai_key, assistant_context,
+    assistant_stream
 }
 # JMS GENERATE stage, PLAN step: LLM-authored dataset plans (claude via byllm /
 # mlx via the resident model), edit + approve. Consumed by GenerateStage.

@@ -2,17 +2,17 @@
 
 One-stop local ML workbench for the Jac fine-tuning project: chat with the
 trained models, launch + monitor training, run the data pipeline, and run
-evals — all in one monochrome UI. Written in **pure Jac** (full-stack: server
+evals — all in one frosted-glass light/dark UI. Written in **pure Jac** (full-stack: server
 + React-in-Jac client from one codebase). Supersedes the old FastAPI + Next.js
 app (deleted) and the earlier web_app/ + dashboard_app/.
 
 ## Run
 
     jac setup desktop               # one-time: init the native webview target
-    ./studio-desktop/start.sh       # launches a native desktop window (API in-process, no browser)
+    ./jms/start.sh       # launches a native desktop window (API in-process, no browser)
 
 Models/dataset/results are read from `JAC_STUDIO_DATA_ROOT` (defaults to the
-parent of `studio-desktop/` — the `jac_ml_studio` workspace checkout). Override
+parent of `jms/` — the `jac_ml_studio` workspace checkout). Override
 with `JAC_STUDIO_WORKSPACE` / `JAC_STUDIO_DATA_ROOT` when models live elsewhere.
 
 Workspace data-config (model registry, dataset file maps, train defaults) lives
@@ -28,7 +28,7 @@ dies on `import bcrypt`. `start.sh` points the native host's `JAC_DESKTOP_DEPS`
 env var at `.jac/desktop_deps/` (appended to `sys.path` at boot). That dir is
 .gitignored, so repopulate it after a fresh clone or a `jac clean`:
 
-    pip install --target studio-desktop/.jac/desktop_deps \
+    pip install --target jms/.jac/desktop_deps \
       "rich>=13.0.0" "python-dotenv>=1.2.1,<2.0.0" \
       "fastapi>=0.121.3,<0.122.0" "uvicorn[standard]>=0.38.0,<0.39.0" \
       "pyjwt>=2.10.1,<2.11.0" "fastapi-sso>=0.21.0,<1.0.0" \
@@ -42,7 +42,7 @@ the boot crashes on incompatible majors.
 
 ## Layout
 
-Everything lives in this directory (`studio-desktop/`):
+Everything lives in this directory (`jms/`):
 
 - `paths.sv.jac` — canonical `studio_root` / `workspace_root` / `data_root` +
   jacgen script paths (single source of truth for path resolution).
@@ -59,11 +59,11 @@ Everything lives in this directory (`studio-desktop/`):
   port of procs.py), `metrics` (log/metric parsers, port of runlogs.py),
   `prompts`.
 - `components/**/*.cl.jac` — the UI. Sections CHAT / TRAIN / DATA / EVALS / RL
-  behind the left icon rail; shared chart/form/log primitives; monochrome
-  Geist-Mono schematic theme (`global.css`).
+  behind the left icon rail; shared chart/form/log primitives; frosted-glass
+  light/dark theme with warm orange accent (`global.css`, `theme.css`).
 - `main.jac` — registers every endpoint + mounts the client app.
 
 ## Test
 
-    cd studio-desktop && jac check main.jac   # type-check the whole app
-    ./studio-desktop/smoke.sh                 # while running
+    cd jms && jac check main.jac   # type-check the whole app
+    ./jms/smoke.sh                 # while running
